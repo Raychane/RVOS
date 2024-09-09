@@ -2,11 +2,42 @@
 
 #define DELAY 1000
 
-void user_task0(void *param)
+struct userdata {
+	int counter;
+	char *str;
+};
+
+/* Jack must be global */
+struct userdata person = {0, "Jack"};
+
+void timer_func(void *arg)
+{
+	if (NULL == arg)
+		return;
+
+	struct userdata *param = (struct userdata *)arg;
+
+	param->counter++;
+	printf("======> TIMEOUT: %s: %d\n", param->str, param->counter);
+}
+
+void user_task0(void)
 {
 	uart_puts("Task 0: Created!\n");
-	while (1)
-	{
+
+	struct timer *t1 = timer_create(timer_func, &person, 3);
+	if (NULL == t1) {
+		printf("timer_create() failed!\n");
+	}
+	struct timer *t2 = timer_create(timer_func, &person, 5);
+	if (NULL == t2) {
+		printf("timer_create() failed!\n");
+	}
+	struct timer *t3 = timer_create(timer_func, &person, 7);
+	if (NULL == t3) {
+		printf("timer_create() failed!\n");
+	}
+	while (1) {
 		uart_puts("Task 0: Running...\n");
 		task_delay(DELAY);
 	}
