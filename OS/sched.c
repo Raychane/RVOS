@@ -45,71 +45,35 @@ void back_to_os(void)
 /*
  * implement a priority-based scheduler
  */
-void schedule()
-{
+void schedule() {
 	spin_lock();
-	if (_top <= 0)
-	{
-		// panic("Num of task should be greater than zero!");
+	if (_top <= 0) {
+		spin_unlock();
 		return;
 	}
 
 	int next_task = -1;
 	uint8_t highest_priority = 255;
 
-	// Find the highest priority
-	for (int i = 0; i < _top; i++)
-	{
-		if (tasks[i].valid && tasks[i].priority < highest_priority)
-		{
+	for (int i = 0; i < _top; i++) {
+		if (tasks[i].state == TASK_READY && tasks[i].priority < highest_priority) {
 			highest_priority = tasks[i].priority;
+			next_task = i;
 		}
 	}
 
-	// Find the next task with the same highest priority
-	for (int i = 0; i < _top; i++)
-	{
-		if (tasks[i].valid && tasks[i].priority == highest_priority)
-		{
-			if (i > _current)
-			{
-				next_task = i;
-				break;
-			}
-		}
-	}
-
-	if (next_task == -1)
-	{
-		for (int i = 0; i < MAX_TASKS; i++)
-		{
-			if (tasks[i].valid && tasks[i].priority == highest_priority)
-			{
-				next_task = i;
-				break;
-			}
-		}
-	}
-	if (next_task == -1)
-	{
-		panic("no schedulable task");
+	if (next_task == -1) {
+		spin_unlock();
 		return;
 	}
 
-	// if (next_task == _current)
-	{
-		// return;这段代码会导致函数返回到kernel中并继续反复调用调度函数，造成死循环
-	}
-
 	_current = next_task;
+	tasks[_current].state = TASK_RUNNING; // 设置当前任务为运行状态
 	struct context *next = &(tasks[_current].ctx);
 
-	// Switch to kernel scheduler task first
-	// switch_to(&kernel_ctx);//?
-
-	// Kernel scheduler task will switch to the next task
-	switch_to(next);
 	spin_unlock();
+
+	switch_to(next);
 }
 
 void check_timeslice()
@@ -148,6 +112,7 @@ int task_create(void (*start_routin)(void *param), void *param, uint8_t priority
 	tasks[_top].valid = 1;
 	tasks[_top].timeslice = timeslice;
 	tasks[_top].remaining_timeslice = timeslice;
+    tasks[_top].state = TASK_READY;
 
 	_top++;
 
@@ -173,27 +138,31 @@ void task_yield()
  * DESCRIPTION
  *  task_exit() causes the calling task to exit and be removed from the scheduler.
  */
-void task_exit()
-{
-	if (_current != -1)
-	{
-		tasks[_current].valid = 0;
-		// back_to_os();
-		int id = r_mhartid();
-		*(uint32_t *)CLINT_MSIP(id) = 1;
+void task_exit() {
+	if (_current < 0 || _current >= MAX_TASKS) {
+		return;
 	}
+
+	tasks[_current].state = TASK_EXITED;
+	schedule();
 }
 
-/*
- * a very rough implementation, just to consume the cpu
- */
-void task_delay(volatile int count)
-{
-	spin_lock();
-	count *= 50000;
-	while (count--)
-		;
-	spin_unlock();
+static void task_wakeup(void *arg) {
+    int task_id = (int)arg;
+    tasks[task_id].state = TASK_READY;
+}
+
+int task_delay(uint32_t tick) {
+	if (_current < 0 || _current >= MAX_TASKS) {
+		return -1;
+	}
+
+	tasks[_current].state = TASK_SLEEPING;
+	timer_create(task_wakeup, (void *)_current, tick);
+
+	schedule();
+
+	return 0;
 }
 
 void kernel_scheduler()

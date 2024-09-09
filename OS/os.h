@@ -64,15 +64,20 @@ struct context
 typedef struct
 {
 	struct context ctx;
-	//void *param;
 	uint8_t priority;
 	uint8_t valid;
 	uint32_t timeslice;
 	uint32_t remaining_timeslice;
+	uint8_t state; // 添加 state 字段
 } task_t;
 
+#define TASK_READY 0
+#define TASK_SLEEPING 1
+#define TASK_RUNNING 2
+#define TASK_EXITED 3
+
 extern int task_create(void (*start_routin)(void *param), void *param, uint8_t priority, uint32_t timeslice);
-extern void task_delay(volatile int count);
+extern int task_delay(uint32_t tick);
 extern void task_yield();
 extern void task_exit();
 
@@ -95,4 +100,15 @@ extern void plic_complete(int irq);
 extern int spin_lock(void);
 extern int spin_unlock(void);
 
+/* software timer */
+struct timer {
+    void (*func)(void *arg);
+    void *arg;
+    uint32_t timeout_tick;
+    struct timer *next;
+    struct timer *prev;
+};
+
+extern struct timer *timer_create(void (*handler)(void *arg), void *arg, uint32_t timeout);
+extern void timer_delete(struct timer *timer);
 #endif /* __OS_H__ */

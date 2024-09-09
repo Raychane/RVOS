@@ -172,18 +172,3 @@ void page_free(void *p)
 		}
 	}
 }
-
-void page_test()
-{
-	void *p = page_alloc(2);
-	printf("p = 0x%x\n", p);
-	//page_free(p);
-
-	void *p2 = page_alloc(7);
-	printf("p2 = 0x%x\n", p2);
-	page_free(p2);
-
-	void *p3 = page_alloc(4);
-	printf("p3 = 0x%x\n", p3);
-}
-
