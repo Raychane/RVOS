@@ -4,15 +4,16 @@
 extern void switch_to(struct context *next);
 
 #define MAX_TASKS 10
-#define STACK_SIZE 1024
-#define KERNEL_STACK_SIZE 1024
+#define STACK_SIZE 1024 * 1024
+#define KERNEL_STACK_SIZE 1024 * 1024
+#define DEFAULT_TIMESLICE 10
 
 /*
  * In the standard RISC-V calling convention, the stack pointer sp
  * is always 16-byte aligned.
  */
 uint8_t __attribute__((aligned(16))) task_stack[MAX_TASKS][STACK_SIZE];
-uint8_t __attribute__((aligned(16))) kernel_stack[KERNEL_STACK_SIZE];
+uint8_t __attribute__((aligned(16))) kernel_stack_kernel[KERNEL_STACK_SIZE];
 task_t tasks[MAX_TASKS];
 struct context kernel_ctx;
 
@@ -23,20 +24,28 @@ struct context kernel_ctx;
 static int _top = 0;
 static int _current = -1;
 
+void kernel_scheduler()
+{
+	while (1)
+	{
+		SCHEDULE
+	}
+}
+
+// 在 `sched_init` 中创建内核调度任务
 void sched_init()
 {
 	w_mscratch((reg_t)&kernel_ctx);
-
-	// w_mscratch(0);
-
-	/* enable machine-mode software interrupts. */
 	w_mie(r_mie() | MIE_MSIE);
 
-	// Initialize kernel scheduler task context 是将ms寄存器的地址写入ctx，因此不需要初始化，自有寄存器帮我写内容
-	kernel_ctx.sp = (reg_t)&kernel_stack[KERNEL_STACK_SIZE];
+	// 初始化内核调度任务上下文
+	kernel_ctx.sp = (reg_t)&kernel_stack_kernel[KERNEL_STACK_SIZE];
 	kernel_ctx.pc = (reg_t)kernel_scheduler;
-}
 
+	// task_create(kernel_scheduler, NULL, 0); // 优先级最高的内核任务
+
+	// 其他初始化代码...
+}
 void back_to_os(void)
 {
 	switch_to(&kernel_ctx);
@@ -50,14 +59,14 @@ void schedule()
 	spin_lock();
 	if (_top <= 0)
 	{
-		// panic("Num of task should be greater than zero!");
+		spin_unlock();
 		return;
 	}
 
 	int next_task = -1;
 	uint8_t highest_priority = 255;
 
-	// Find the highest priority
+	// 找到最高优先级
 	for (int i = 0; i < _top; i++)
 	{
 		if (tasks[i].valid && tasks[i].priority < highest_priority)
@@ -66,16 +75,14 @@ void schedule()
 		}
 	}
 
-	// Find the next task with the same highest priority
+	// 在最高优先级中轮转选择下一个任务
 	for (int i = 0; i < _top; i++)
 	{
-		if (tasks[i].valid && tasks[i].priority == highest_priority)
+		int idx = (_current + 1 + i) % _top;
+		if (tasks[idx].valid && tasks[idx].priority == highest_priority)
 		{
-			if (i > _current)
-			{
-				next_task = i;
-				break;
-			}
+			next_task = idx;
+			break;
 		}
 	}
 
@@ -83,31 +90,24 @@ void schedule()
 	{
 		for (int i = 0; i < MAX_TASKS; i++)
 		{
-			if (tasks[i].valid && tasks[i].priority == highest_priority)
+			if (tasks[i].priority == highest_priority)
 			{
 				next_task = i;
 				break;
 			}
 		}
 	}
+
 	if (next_task == -1)
 	{
-		panic("no schedulable task");
+		panic("没有可调度的任务");
+		spin_unlock();
 		return;
-	}
-
-	// if (next_task == _current)
-	{
-		// return;这段代码会导致函数返回到kernel中并继续反复调用调度函数，造成死循环
 	}
 
 	_current = next_task;
 	struct context *next = &(tasks[_current].ctx);
 
-	// Switch to kernel scheduler task first
-	// switch_to(&kernel_ctx);//?
-
-	// Kernel scheduler task will switch to the next task
 	switch_to(next);
 	spin_unlock();
 }
@@ -132,7 +132,7 @@ void check_timeslice()
  *  0: success
  *  -1: if error occurred
  */
-int task_create(void (*start_routin)(void *param), void *param, uint8_t priority, uint32_t timeslice)
+int task_create(void (*start_routin)(void *param), void *param, uint8_t priority)
 {
 	spin_lock();
 	if (_top >= MAX_TASKS)
@@ -141,13 +141,19 @@ int task_create(void (*start_routin)(void *param), void *param, uint8_t priority
 		return -1;
 	}
 
-	tasks[_top].ctx.sp = (reg_t)&task_stack[_top][STACK_SIZE];
+	tasks[_top].ctx.sp = (reg_t)&task_stack[_top][STACK_SIZE] & ~0xF;
 	tasks[_top].ctx.pc = (reg_t)start_routin;
 	tasks[_top].ctx.a0 = param;
+	// 初始化 mstatus 为机器模式
+	tasks[_top].ctx.mstatus = (3 << 11) | (1 << 7); // MPP = 3 (机器模式), MPIE = 1
+
+	// 其他初始化代码...
 	tasks[_top].priority = priority;
 	tasks[_top].valid = 1;
-	tasks[_top].timeslice = timeslice;
-	tasks[_top].remaining_timeslice = timeslice;
+	tasks[_top].timeslice = DEFAULT_TIMESLICE;
+	tasks[_top].remaining_timeslice = DEFAULT_TIMESLICE;
+
+	printf("创建任务: %p\n", (void *)tasks[_top].ctx.pc);
 
 	_top++;
 
@@ -162,28 +168,32 @@ int task_create(void (*start_routin)(void *param), void *param, uint8_t priority
  */
 void task_yield()
 {
-	schedule();
-	// back_to_os();
-	/* trigger a machine-level software interrupt */
-	// int id = r_mhartid();
-	//*(uint32_t*)CLINT_MSIP(id) = 1;
+	// 触发一个软件中断，内核调度任务将负责实际的任务切换
+	int hart = r_mhartid();
+	*(uint32_t *)CLINT_MSIP(hart) = 1;
 }
-
 /*
  * DESCRIPTION
  *  task_exit() causes the calling task to exit and be removed from the scheduler.
  */
 void task_exit()
 {
+	spin_lock();
 	if (_current != -1)
 	{
 		tasks[_current].valid = 0;
-		// back_to_os();
-		int id = r_mhartid();
-		*(uint32_t *)CLINT_MSIP(id) = 1;
+		uart_puts("任务已退出，并被调度器回收。\n");
 	}
-}
+	spin_unlock();
+	SCHEDULE
+	// 如果所有任务都退出，内核可以进入空闲状态或重新启动
+	// panic("所有任务已退出，系统终止。");
 
+    {
+        // 进入空闲状态，等待中断
+        asm volatile("wfi");
+    }	
+}
 /*
  * a very rough implementation, just to consume the cpu
  */
@@ -194,14 +204,4 @@ void task_delay(volatile int count)
 	while (count--)
 		;
 	spin_unlock();
-}
-
-void kernel_scheduler()
-{
-	while (1)
-	{
-		uart_puts("kernel_scheduler check\n");
-		// Kernel scheduler task does nothing, just yields to the next task
-		schedule();
-	}
 }

@@ -34,7 +34,7 @@ void start_kernel(void)
 
     while (1)
     {
-        schedule();
+        SCHEDULE
     }
     uart_puts("Would not go here!\n");
     while (1)
