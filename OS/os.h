@@ -98,4 +98,23 @@ extern void plic_complete(int irq);
 extern int spin_lock(void);
 extern int spin_unlock(void);
 
+/* software timer */
+#define MAX_LEVEL 6
+
+struct timer {
+    void (*func)(void *arg);
+    void *arg;
+    uint32_t timeout_tick;
+    struct timer *forward[1]; // 跳表的前向指针数组
+};
+
+typedef struct {
+    struct timer *header;
+    int level;
+} skiplist;
+
+extern struct timer *timer_create(void (*handler)(void *arg), void *arg, uint32_t timeout);
+extern void timer_delete(struct timer *timer);
+extern void timer_init(void);
+
 #endif /* __OS_H__ */

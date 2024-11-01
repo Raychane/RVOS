@@ -187,7 +187,12 @@ void task_exit()
 	spin_unlock();
 	SCHEDULE
 	// 如果所有任务都退出，内核可以进入空闲状态或重新启动
-	panic("所有任务已退出，系统终止。");
+	// panic("所有任务已退出，系统终止。");
+
+    {
+        // 进入空闲状态，等待中断
+        asm volatile("wfi");
+    }	
 }
 /*
  * a very rough implementation, just to consume the cpu
