@@ -53,11 +53,9 @@ void *malloc(size_t size)
 
     size = ALIGN(size + sizeof(mem_block)); // 包括管理结构的大小
 
-    printf("请求分配 %d 字节的内存\n", size);
 
     while (current)
     {
-        printf("检查块：地址=%p，大小=%d\n", (void *)current, current->size);
         if (current->free && current->size >= size)
         {
             size_t current_block_free_space = current->size - size;
@@ -68,7 +66,6 @@ void *malloc(size_t size)
             }
         }
         current = current->next;
-        printf("移动到下一个块：地址=%p\n", (void *)current);
     }
 
     if (!best_fit_block)
@@ -100,9 +97,6 @@ void *malloc(size_t size)
     void *allocated_memory = (void *)(best_fit_block + 1);
     memset(allocated_memory, 0, best_fit_block->size - sizeof(mem_block));
 
-    printf("分配了 %d 字节的内存\n", size);
-    printf("分配后块：地址=%p，大小=%d\n", (void *)best_fit_block, best_fit_block->size);
-    printf("新块：地址=%p，大小=%d\n\n", (void *)best_fit_block->next, best_fit_block->next ? best_fit_block->next->size : 0);
     return allocated_memory;
 }
 

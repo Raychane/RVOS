@@ -2,16 +2,43 @@
 
 #define DELAY 1000
 
-void user_task0(void *param)
+struct userdata {
+	int counter;
+	char *str;
+};
+
+/* Jack must be global */
+struct userdata person = {0, "Jack"};
+
+void timer_func(void *arg)
+{
+	if (NULL == arg)
+		return;
+
+	struct userdata *param = (struct userdata *)arg;
+
+	param->counter++;
+	printf("======> TIMEOUT: %s: %d\n", param->str, param->counter);
+}
+
+void user_task0(void)
 {
 	uart_puts("Task 0: Created!\n");
-	while (1)
-	{
-		uart_puts("Task 0: Running...\n");
+
+	struct timer *t1 = timer_create(timer_func, &person, 3);
+	if (NULL == t1) {
+		printf("timer_create() failed!\n");
+	}
+	struct timer *t2 = timer_create(timer_func, &person, 5);
+	if (NULL == t2) {
+		printf("timer_create() failed!\n");
+	}
+	while (1) {
+		uart_puts("Task 0: Running... \n");
 		task_delay(DELAY);
 	}
 }
-
+		
 void user_task1(void *param)
 {
 	uart_puts("Task 1: Created!\n");
@@ -43,9 +70,9 @@ void user_task(void *param)
 /* NOTICE: DON'T LOOP INFINITELY IN main() */
 void os_main(void)
 {
-    // 创建任务
-    task_create(user_task0, NULL, 255, 10);
-    task_create(user_task1, NULL, 255, 10);
-	task_create(user_task, (void *)2, 0, 10);
-	task_create(user_task, (void *)3, 0, 10);
+    // 创建用户任务
+    task_create(user_task0, NULL, 128); // 优先级 1
+    task_create(user_task1, NULL, 128); // 优先级 2
+    task_create(user_task, (void *)2, 3); // 优先级 3
+    task_create(user_task, (void *)3, 3); // 优先级 3
 }

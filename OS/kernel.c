@@ -24,17 +24,18 @@ void start_kernel(void)
 
     plic_init();
 
+    memory_init();
+
     timer_init();
 
     sched_init();
 
-    memory_init(); // 初始化内存管理
 
     os_main();
 
     while (1)
     {
-        schedule();
+        SCHEDULE
     }
     uart_puts("Would not go here!\n");
     while (1)
