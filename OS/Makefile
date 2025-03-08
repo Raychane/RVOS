@@ -1,71 +1,118 @@
 include ../common.mk
 
-# Define the build directory
+# 定义构建目录
 BUILD_DIR = build
 
-# Create the build directory if it doesn't exist
+# 创建构建目录
 $(shell mkdir -p $(BUILD_DIR))
+$(shell mkdir -p $(BUILD_DIR)/arch/riscv)
+$(shell mkdir -p $(BUILD_DIR)/kernel/core)
+$(shell mkdir -p $(BUILD_DIR)/kernel/mm)
+$(shell mkdir -p $(BUILD_DIR)/kernel/syscall)
+$(shell mkdir -p $(BUILD_DIR)/drivers)
+$(shell mkdir -p $(BUILD_DIR)/lib)
+$(shell mkdir -p $(BUILD_DIR)/user/tasks)
 
+# 定义包含路径
+INCLUDE_PATH = -I./include -I./include/kernel -I.
+
+# 架构相关源文件
 SRCS_ASM = \
-	start.S \
-	mem.S \
-	entry.S \
+    arch/riscv/start.S \
+    arch/riscv/mem.S \
+    arch/riscv/entry.S
 
+<<<<<<< Updated upstream
 SRCS_C = \
 	kernel.c \
 	uart.c \
 	printf.c \
 	page.c \
-	task.c \
+	sched.c \
 	malloc.c \
 	user.c \
 	trap.c \
 	plic.c \
 	timer.c \
 	lock.c \
-	algorithm.c \
+=======
+# C源文件
+SRCS_KERNEL = \
+    kernel/core/kernel.c \
+    kernel/core/task.c \
+    kernel/core/trap.c \
+    kernel/core/lock.c \
+    kernel/mm/page.c \
+    kernel/mm/malloc.c \
+    kernel/syscall/syscall.c
+>>>>>>> Stashed changes
 
-# Modify the object files to be placed in the build directory
-OBJS = $(addprefix $(BUILD_DIR)/, $(SRCS_ASM:.S=.o))
-OBJS += $(addprefix $(BUILD_DIR)/, $(SRCS_C:.c=.o))
+SRCS_DRIVERS = \
+    drivers/uart.c \
+    drivers/plic.c \
+    drivers/timer.c
 
+SRCS_LIB = \
+    lib/printf.c \
+    lib/algorithm.c
+
+SRCS_USER = \
+    user/tasks/user.c
+
+SRCS_C = $(SRCS_KERNEL) $(SRCS_DRIVERS) $(SRCS_LIB) $(SRCS_USER)
+
+# 生成目标文件路径
+OBJS_ASM = $(patsubst %.S, $(BUILD_DIR)/%.o, $(SRCS_ASM))
+OBJS_C = $(patsubst %.c, $(BUILD_DIR)/%.o, $(SRCS_C))
+OBJS = $(OBJS_ASM) $(OBJS_C)
+
+# 默认目标
 .DEFAULT_GOAL := all
-
 all: $(BUILD_DIR)/os.elf
 
-# start.o must be the first in dependency!
-$(BUILD_DIR)/os.elf: ${OBJS}
-	${CC} ${CFLAGS} -T os.ld -o $@ $^
-	${OBJCOPY} -O binary $@ $(BUILD_DIR)/os.bin
+# 编译规则
+$(BUILD_DIR)/os.elf: $(OBJS)
+	$(CC) $(CFLAGS) -T os.ld -o $@ $^
+	$(OBJCOPY) -O binary $@ $(BUILD_DIR)/os.bin
 
-$(BUILD_DIR)/%.o : %.c
-	${CC} ${CFLAGS} -c -o $@ $<
+# 编译C源文件规则
+$(BUILD_DIR)/%.o: %.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) $(INCLUDE_PATH) -c -o $@ $<
 
-$(BUILD_DIR)/%.o : %.S
-	${CC} ${CFLAGS} -c -o $@ $<
+# 编译汇编源文件规则
+$(BUILD_DIR)/%.o: %.S
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) $(INCLUDE_PATH) -c -o $@ $<
 
+# 构建和运行
+.PHONY: run
 run: all
-	@${QEMU} -M ? | grep virt >/dev/null || exit
+	@$(QEMU) -M ? | grep virt >/dev/null || exit
 	@echo "Press Ctrl-A and then X to exit QEMU"
 	@echo "------------------------------------"
-	@${QEMU} ${QFLAGS} -kernel $(BUILD_DIR)/os.elf
+	@$(QEMU) $(QFLAGS) -kernel $(BUILD_DIR)/os.elf
 
-.PHONY : debug
+# 调试
+.PHONY: debug
 debug: all
 	@echo "Press Ctrl-C and then input 'quit' to exit GDB and QEMU"
 	@echo "-------------------------------------------------------"
-	@${QEMU} ${QFLAGS} -kernel $(BUILD_DIR)/os.elf -s -S &
-	@${GDB} $(BUILD_DIR)/os.elf -q -x ../gdbinit
+	@$(QEMU) $(QFLAGS) -kernel $(BUILD_DIR)/os.elf -s -S &
+	@$(GDB) $(BUILD_DIR)/os.elf -q -x ../gdbinit
 
-.PHONY : code
+# 生成反汇编代码
+.PHONY: code
 code: all
-	@${OBJDUMP} -S $(BUILD_DIR)/os.elf | less
+	@$(OBJDUMP) -S $(BUILD_DIR)/os.elf | less
 
-.PHONY : txt
+# 生成文本文件
+.PHONY: txt
 txt: all
-	@${OBJDUMP} -S $(BUILD_DIR)/os.elf > os.txt
+	@$(OBJDUMP) -S $(BUILD_DIR)/os.elf > os.txt
 
-.PHONY : clean
+# 清理
+.PHONY: clean
 clean:
 	rm -rf $(BUILD_DIR)
 	rm -rf os.txt

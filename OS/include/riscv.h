@@ -99,4 +99,40 @@ static inline reg_t r_mcause()
 	return x;
 }
 
+// 读取各个参数寄存器的函数
+static inline reg_t r_a0()
+{
+    reg_t x;
+    asm volatile("mv %0, a0" : "=r"(x));
+    return x;
+}
+
+static inline reg_t r_a1()
+{
+    reg_t x;
+    asm volatile("mv %0, a1" : "=r"(x));
+    return x;
+}
+
+static inline reg_t r_a2()
+{
+    reg_t x;
+    asm volatile("mv %0, a2" : "=r"(x));
+    return x;
+}
+
+static inline reg_t r_a3()
+{
+    reg_t x;
+    asm volatile("mv %0, a3" : "=r"(x));
+    return x;
+}
+
+static inline reg_t r_a4()
+{
+    reg_t x;
+    asm volatile("mv %0, a4" : "=r"(x));
+    return x;
+}
+
 #endif /* __RISCV_H__ */

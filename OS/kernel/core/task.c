@@ -230,17 +230,17 @@ void task_delay(uint32_t ticks)
 
 	int task_id = _current;
 	tasks[task_id].state = TASK_SLEEPING;
-	spin_unlock();
+	//spin_unlock();
 
 	// 创建定时器，ticks 后调用 wake_up_task 以唤醒任务
 	if (timer_create(wake_up_task, (void *)task_id, ticks) == NULL)
 	{
 		// 定时器创建失败，恢复任务状态为就绪
-		spin_lock();
+		//spin_lock();
 		tasks[task_id].state = TASK_READY;
-		spin_unlock();
 	}
-
+	spin_unlock();
+	
 	// 让出 CPU，触发调度
 	task_yield();
 }

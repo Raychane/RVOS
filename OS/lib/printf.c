@@ -107,7 +107,7 @@ static int _vsnprintf(char * out, size_t n, const char* s, va_list vl)
 
 static char out_buf[1000]; // buffer for _vprintf()
 
-static int _vprintf(const char* s, va_list vl)
+int _vprintf(const char* s, va_list vl)
 {
 	int res = _vsnprintf(NULL, -1, s, vl);
 	if (res+1 >= sizeof(out_buf)) {
@@ -134,8 +134,5 @@ void panic(char *s)
 	printf("panic: ");
 	printf(s);
 	printf("\n");
-	while(1){
-		for(int i=0;i<10000000;i++);
-		printf("something run\n");
-	};
+	while(1){};
 }
