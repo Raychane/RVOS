@@ -22,20 +22,6 @@ SRCS_ASM = \
     arch/riscv/mem.S \
     arch/riscv/entry.S
 
-<<<<<<< Updated upstream
-SRCS_C = \
-	kernel.c \
-	uart.c \
-	printf.c \
-	page.c \
-	sched.c \
-	malloc.c \
-	user.c \
-	trap.c \
-	plic.c \
-	timer.c \
-	lock.c \
-=======
 # C源文件
 SRCS_KERNEL = \
     kernel/core/kernel.c \
@@ -45,7 +31,6 @@ SRCS_KERNEL = \
     kernel/mm/page.c \
     kernel/mm/malloc.c \
     kernel/syscall/syscall.c
->>>>>>> Stashed changes
 
 SRCS_DRIVERS = \
     drivers/uart.c \

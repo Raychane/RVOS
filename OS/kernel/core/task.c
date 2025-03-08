@@ -239,7 +239,7 @@ void task_delay(uint32_t ticks)
 		//spin_lock();
 		tasks[task_id].state = TASK_READY;
 	}
-	spin_unlock();
+	//spin_unlock();
 	
 	// 让出 CPU，触发调度
 	task_yield();

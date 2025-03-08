@@ -55,19 +55,11 @@ void *malloc(size_t size)
 
     size = ALIGN(size + sizeof(mem_block)); // 包括管理结构的大小
 
-<<<<<<< Updated upstream:OS/malloc.c
-    printf("请求分配 %d 字节的内存\n", size);
-
-    while (current)
-    {
-        printf("检查块：地址=%p，大小=%d\n", (void *)current, current->size);
-=======
     // printf("请求分配 %d 字节的内存\n", size);
 
     while (current)
     {
         // printf("检查块：地址=%p，大小=%d\n", (void *)current, current->size);
->>>>>>> Stashed changes:OS/kernel/mm/malloc.c
         if (current->free && current->size >= size)
         {
             size_t current_block_free_space = current->size - size;
@@ -78,11 +70,7 @@ void *malloc(size_t size)
             }
         }
         current = current->next;
-<<<<<<< Updated upstream:OS/malloc.c
-        printf("移动到下一个块：地址=%p\n", (void *)current);
-=======
         // printf("移动到下一个块：地址=%p\n", (void *)current);
->>>>>>> Stashed changes:OS/kernel/mm/malloc.c
     }
 
     if (!best_fit_block)
@@ -114,15 +102,9 @@ void *malloc(size_t size)
     void *allocated_memory = (void *)(best_fit_block + 1);
     memset(allocated_memory, 0, best_fit_block->size - sizeof(mem_block));
 
-<<<<<<< Updated upstream:OS/malloc.c
-    printf("分配了 %d 字节的内存\n", size);
-    printf("分配后块：地址=%p，大小=%d\n", (void *)best_fit_block, best_fit_block->size);
-    printf("新块：地址=%p，大小=%d\n\n", (void *)best_fit_block->next, best_fit_block->next ? best_fit_block->next->size : 0);
-=======
     // printf("分配了 %d 字节的内存\n", size);
     // printf("分配后块：地址=%p，大小=%d\n", (void *)best_fit_block, best_fit_block->size);
     // printf("新块：地址=%p，大小=%d\n\n", (void *)best_fit_block->next, best_fit_block->next ? best_fit_block->next->size : 0);
->>>>>>> Stashed changes:OS/kernel/mm/malloc.c
     return allocated_memory;
 }
 
@@ -136,11 +118,7 @@ void free(void *ptr)
     mem_block *block_to_free = (mem_block *)((char *)ptr - sizeof(mem_block));
     block_to_free->free = 1;
 
-<<<<<<< Updated upstream:OS/malloc.c
-    printf("释放块：地址=%p，大小=%d\n\n", (void *)block_to_free, block_to_free->size);
-=======
     // printf("释放块：地址=%p，大小=%d\n\n", (void *)block_to_free, block_to_free->size);
->>>>>>> Stashed changes:OS/kernel/mm/malloc.c
 
     // 合并空闲块
     mem_block *current = free_list;
