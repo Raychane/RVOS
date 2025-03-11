@@ -4,7 +4,7 @@
  * ref: https://github.com/cccriscv/mini-riscv-os/blob/master/05-Preemptive/lib.c
  */
 
-static int _vsnprintf(char * out, size_t n, const char* s, va_list vl)
+int _vsnprintf(char * out, size_t n, const char* s, va_list vl)
 {
 	int format = 0;
 	int longarg = 0;
@@ -135,4 +135,10 @@ void panic(char *s)
 	printf(s);
 	printf("\n");
 	while(1){};
+}
+
+// 将 _vsnprintf 包装为更容易使用的函数
+int _vsprintf(char *out, const char *fmt, va_list vl)
+{
+    return _vsnprintf(out, 256, fmt, vl);  // 假设最大 256 字节输出
 }

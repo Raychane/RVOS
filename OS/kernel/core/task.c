@@ -21,7 +21,7 @@ struct context kernel_ctx;
  * _current is used to point to the context of current task
  */
 static int _top = 0;
-static int _current = -1;
+int _current = -1;
 
 void kernel_scheduler()
 {
@@ -110,8 +110,8 @@ void schedule()
 	struct context *next = &(tasks[_current].ctx);
 
 	tasks[_current].state = TASK_RUNNING;
-	switch_to(next);
 	spin_unlock();
+	switch_to(next);
 }
 
 void check_timeslice()
@@ -221,28 +221,28 @@ void wake_up_task(void *arg)
  */
 void task_delay(uint32_t ticks)
 {
-	spin_lock();
-	if (_current == -1)
-	{
-		spin_unlock();
-		return;
-	}
+    spin_lock();
+    if (_current == -1)
+    {
+        spin_unlock();
+        return;
+    }
 
-	int task_id = _current;
-	tasks[task_id].state = TASK_SLEEPING;
-	//spin_unlock();
+    int task_id = _current;
+    tasks[task_id].state = TASK_SLEEPING;
+    spin_unlock(); // 解锁，因为timer_create可能会阻塞
 
-	// 创建定时器，ticks 后调用 wake_up_task 以唤醒任务
-	if (timer_create(wake_up_task, (void *)task_id, ticks) == NULL)
-	{
-		// 定时器创建失败，恢复任务状态为就绪
-		//spin_lock();
-		tasks[task_id].state = TASK_READY;
-	}
-	//spin_unlock();
-	
-	// 让出 CPU，触发调度
-	task_yield();
+    // 创建定时器，ticks 后调用 wake_up_task 以唤醒任务
+    if (timer_create(wake_up_task, (void *)task_id, ticks) == NULL)
+    {
+        // 定时器创建失败，恢复任务状态为就绪
+        spin_lock();
+        tasks[task_id].state = TASK_READY;
+        spin_unlock();
+    }
+    
+    // 让出 CPU，触发调度
+    task_yield();
 }
 
 /* 获取任务函数名称 */

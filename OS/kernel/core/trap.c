@@ -5,7 +5,7 @@ extern void trap_vector(void);
 extern void uart_isr(void);
 extern void timer_handler(void);
 extern void schedule(void);
-extern void handle_syscall(reg_t epc, reg_t a0, reg_t a1, reg_t a2, reg_t a3, reg_t a4);
+extern void handle_syscall(reg_t epc, reg_t cause);
 
 void trap_init()
 {
@@ -76,10 +76,28 @@ reg_t trap_handler(reg_t epc, reg_t cause)
 		/* 同步陷阱 - 异常 */
 		switch (cause_code)
 		{
-		case 8: // 环境调用（来自用户模式）
+		case 8:	 // 环境调用（来自用户模式）
+		case 11: // 环境调用（来自机器模式）
 			// 系统调用处理
-			return_pc += 4; // 跳过 ecall 指令
-			handle_syscall(epc, r_a0(), r_a1(), r_a2(), r_a3(), r_a4());
+			return_pc += 4;				// 跳过 ecall 指令
+			handle_syscall(epc, cause); // 只传递epc和cause
+
+			// 确保正确设置返回的特权级别
+			if (cause_code == 8)
+			{
+				// 用户模式调用，确保返回用户模式
+				reg_t mstatus = r_mstatus();
+				mstatus &= ~MSTATUS_MPP; // 清除MPP位(设为用户模式)
+				w_mstatus(mstatus);
+			}
+			else if (cause_code == 11)
+			{
+				// 机器模式调用，确保返回机器模式
+				reg_t mstatus = r_mstatus();
+				mstatus &= ~MSTATUS_MPP;
+				mstatus |= 3 << 11; // 设置MPP为机器模式(3)
+				w_mstatus(mstatus);
+			}
 			break;
 		default:
 			printf("同步异常!, code = %d, epc = %x\n", cause_code, epc);

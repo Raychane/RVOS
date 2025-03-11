@@ -42,7 +42,8 @@ SRCS_LIB = \
     lib/algorithm.c
 
 SRCS_USER = \
-    user/tasks/user.c
+    user/tasks/user.c \
+    user/syscall/user_syscall.c
 
 SRCS_C = $(SRCS_KERNEL) $(SRCS_DRIVERS) $(SRCS_LIB) $(SRCS_USER)
 

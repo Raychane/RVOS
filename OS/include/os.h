@@ -84,6 +84,9 @@ typedef struct
 
 #define DEFAULT_TIMESLICE 2
 
+extern int _current;
+extern task_t tasks[];
+
 typedef struct timer
 {
 	void (*func)(void *arg);
@@ -146,5 +149,6 @@ extern timer *timer_create(
 extern void timer_delete(timer *timer);
 
 extern int _vprintf(const char* s, va_list vl);
+extern int _vsprintf(char *out, const char *fmt, va_list vl);
 
 #endif /* __OS_H__ */
