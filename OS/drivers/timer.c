@@ -83,7 +83,7 @@ void run_timer_list()
     }
     if (timers == NULL)
     {
-        timer_create(schedule, NULL, 1);
+        timer_create(task_yield, NULL, 1);
         spin_unlock();
         return;
     }
@@ -104,6 +104,7 @@ void timer_handler()
     // }
     run_timer_list();
     spin_unlock();
+    //uart_puts("timer handler\n");
     // check_timeslice();
 }
 

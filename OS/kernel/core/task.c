@@ -50,6 +50,14 @@ void back_to_os(void)
 	switch_to(&kernel_ctx);
 }
 
+int is_user_mode(void)
+{
+	reg_t mstatus = r_mstatus();
+	// 检查是否在用户模式中(ecall上下文)
+	// 如果是ecall处理，当前处于机器模式，但返回特权级是用户模式
+	return ((mstatus & MSTATUS_MPP) == 0);
+}
+
 /*
  * implement a priority-based scheduler
  */
@@ -102,7 +110,7 @@ void schedule()
 	if (next_task == -1)
 	{
 		spin_unlock();
-		//panic("没有可调度的任务");
+		// panic("没有可调度的任务");
 		return;
 	}
 
@@ -134,35 +142,26 @@ void check_timeslice()
  *  0: success
  *  -1: if error occurred
  */
-int task_create(void (*start_routin)(void *param), void *param, uint8_t priority, uint32_t timeslice)
+int task_create(void (*start_routin)(void *), void *param, uint8_t priority, uint32_t timeslice)
 {
-	spin_lock();
-	if (_top >= MAX_TASKS)
-	{
-		spin_unlock();
-		return -1;
-	}
-
-	tasks[_top].func = start_routin;
-	tasks[_top].param = param;
-	tasks[_top].ctx.sp = (reg_t)&task_stack[_top][STACK_SIZE] & ~0xF;
+	if (_top >= MAX_TASKS) return -1;
+	
+	// 初始化任务上下文
+	tasks[_top].ctx.sp = (reg_t)&task_stack[_top][STACK_SIZE];
 	tasks[_top].ctx.pc = (reg_t)start_routin;
-	tasks[_top].ctx.a0 = param;
-	// 初始化 mstatus 为用户模式，以防后续任务切换时出错
-	tasks[_top].ctx.mstatus = (0 << 11) | (1 << 7); // MPP = 0 (用户模式), MPIE = 1
-
-	// 其他初始化代码...
+	tasks[_top].param = param;
+	tasks[_top].func = start_routin;
 	tasks[_top].priority = priority;
 	tasks[_top].state = TASK_READY;
 	tasks[_top].timeslice = timeslice;
 	tasks[_top].remaining_timeslice = timeslice;
-
-	printf("创建任务: %p\n", (void *)tasks[_top].ctx.pc);
-
+	
+	// 统一设置特权级 - 简化特权级管理
+	// 可选：所有任务默认用户态，或根据函数地址确定
+	tasks[_top].ctx.mstatus = (0 << 11) | (1 << 7); // 默认用户模式
+	
 	_top++;
-
-	spin_unlock();
-	return 0;
+	return _top - 1;
 }
 
 /*
@@ -170,7 +169,7 @@ int task_create(void (*start_routin)(void *param), void *param, uint8_t priority
  *  task_yield() causes the calling task to relinquish the CPU and a new
  *  task gets to run.
  */
-void task_yield()
+void task_yield(void)
 {
 	spin_lock();
 	if (_current != -1 && tasks[_current].state == TASK_RUNNING)
@@ -179,10 +178,19 @@ void task_yield()
 	}
 	spin_unlock();
 
-	// 触发软件中断让调度器介入
-	int hart = r_mhartid();
-	*(uint32_t *)CLINT_MSIP(hart) = 1;
+	// 检查当前特权级别并使用对应的调度方式
+	if (is_user_mode())
+	{
+		// 在系统调用上下文中，使用软中断方式触发调度
+		SCHEDULE;
+	}
+	else
+	{
+		// 在内核态直接调用调度函数
+		schedule();
+	}
 }
+
 /*
  * DESCRIPTION
  *  task_exit() causes the calling task to exit and be removed from the scheduler.
@@ -221,28 +229,28 @@ void wake_up_task(void *arg)
  */
 void task_delay(uint32_t ticks)
 {
-    spin_lock();
-    if (_current == -1)
-    {
-        spin_unlock();
-        return;
-    }
+	spin_lock();
+	if (_current == -1)
+	{
+		spin_unlock();
+		return;
+	}
 
-    int task_id = _current;
-    tasks[task_id].state = TASK_SLEEPING;
-    spin_unlock(); // 解锁，因为timer_create可能会阻塞
+	int task_id = _current;
+	tasks[task_id].state = TASK_SLEEPING;
+	spin_unlock(); // 解锁，因为timer_create可能会阻塞
 
-    // 创建定时器，ticks 后调用 wake_up_task 以唤醒任务
-    if (timer_create(wake_up_task, (void *)task_id, ticks) == NULL)
-    {
-        // 定时器创建失败，恢复任务状态为就绪
-        spin_lock();
-        tasks[task_id].state = TASK_READY;
-        spin_unlock();
-    }
-    
-    // 让出 CPU，触发调度
-    task_yield();
+	// 创建定时器，ticks 后调用 wake_up_task 以唤醒任务
+	if (timer_create(wake_up_task, (void *)task_id, ticks) == NULL)
+	{
+		// 定时器创建失败，恢复任务状态为就绪
+		spin_lock();
+		tasks[task_id].state = TASK_READY;
+		spin_unlock();
+	}
+
+	// 让出 CPU，触发调度
+	task_yield();
 }
 
 /* 获取任务函数名称 */

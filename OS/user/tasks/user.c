@@ -53,34 +53,37 @@ void user_task(void *param)
 
 void user_syscall_task(void *param)
 {
-    int task_id = (int)param;
-    u_uart_puts("User Syscall Task: Started!\n");
-    
-    // 使用系统调用接口打印
-    u_printf("Task %d: 使用系统调用接口\n", task_id);
-    
-    for (int i = 0; i < 3; i++) {
+	int task_id = (int)param;
+	u_uart_puts("User Syscall Task: Started!\n");
+
+	// 使用系统调用接口打印
+	u_printf("Task %d: 使用系统调用接口\n", task_id);
+
+	for (int i = 0; i < 3; i++)
+	{
+		uart_puts("Task 2: Running...\n");
 		u_printf("Task %d: 迭代 %d\n", task_id, i);
-        u_task_delay(1); // 使用系统调用接口延迟
-    }
-    
-    // 分配内存测试
-    void *mem = u_malloc(64);
-    if (mem != NULL) {
-        u_printf("Task %d: 内存分配成功: %p\n", task_id, mem);
-        u_free(mem); // 释放内存
-    }
-    
-    u_uart_puts("User Syscall Task: 完成!\n");
-    u_task_exit(); // 使用系统调用接口退出
+		u_task_delay(1); // 使用系统调用接口延迟
+	}
+
+	// 分配内存测试
+	void *mem = u_malloc(64);
+	if (mem != NULL)
+	{
+		u_printf("Task %d: 内存分配成功: %p\n", task_id, mem);
+		u_free(mem); // 释放内存
+	}
+
+	u_uart_puts("User Syscall Task: 完成!\n");
+	u_task_exit(); // 使用系统调用接口退出
 }
 
 /* NOTICE: DON'T LOOP INFINITELY IN main() */
 void os_main(void)
 {
-    // 直接使用内核API创建所有任务
-    task_create(just_while, NULL, 129, DEFAULT_TIMESLICE);
-    task_create(user_task0, NULL, 128, DEFAULT_TIMESLICE);
-    task_create(user_task1, NULL, 128, DEFAULT_TIMESLICE);
-    task_create(user_syscall_task, (void*)2, 3, DEFAULT_TIMESLICE);
+	// 直接使用内核API创建所有任务
+	task_create(just_while, NULL, 129, DEFAULT_TIMESLICE);
+	task_create(user_task0, NULL, 128, DEFAULT_TIMESLICE);
+	task_create(user_task1, NULL, 128, DEFAULT_TIMESLICE);
+	task_create(user_syscall_task, (void *)2, 3, DEFAULT_TIMESLICE);
 }

@@ -36,7 +36,6 @@ void external_interrupt_handler()
 
 reg_t trap_handler(reg_t epc, reg_t cause)
 {
-	// printf("异常发生！epc = %x, cause = %x\n", epc, cause);
 	reg_t return_pc = epc;
 	reg_t cause_code = cause & 0xfff;
 
@@ -76,35 +75,24 @@ reg_t trap_handler(reg_t epc, reg_t cause)
 		/* 同步陷阱 - 异常 */
 		switch (cause_code)
 		{
-		case 8:	 // 环境调用（来自用户模式）
-		case 11: // 环境调用（来自机器模式）
-			// 系统调用处理
-			return_pc += 4;				// 跳过 ecall 指令
-			handle_syscall(epc, cause); // 只传递epc和cause
-
-			// 确保正确设置返回的特权级别
-			if (cause_code == 8)
-			{
-				// 用户模式调用，确保返回用户模式
-				reg_t mstatus = r_mstatus();
-				mstatus &= ~MSTATUS_MPP; // 清除MPP位(设为用户模式)
-				w_mstatus(mstatus);
-			}
-			else if (cause_code == 11)
-			{
-				// 机器模式调用，确保返回机器模式
-				reg_t mstatus = r_mstatus();
-				mstatus &= ~MSTATUS_MPP;
-				mstatus |= 3 << 11; // 设置MPP为机器模式(3)
-				w_mstatus(mstatus);
-			}
+		case 8:  // 用户态ecall
+		case 11: // 机器态ecall
+			return_pc += 4;  // 跳过ecall指令
+			handle_syscall(epc, cause);
 			break;
 		default:
-			printf("同步异常!, code = %d, epc = %x\n", cause_code, epc);
-			panic("OOPS! 无法处理的异常！");
-			return_pc += 4;
+			panic("无法处理的异常!");
 			break;
 		}
+	}
+
+	// 简化特权级管理 - 统一使用任务创建时的特权级
+	if (_current >= 0) {
+		reg_t task_mstatus = tasks[_current].ctx.mstatus;
+		reg_t mstatus = r_mstatus();
+		mstatus &= ~MSTATUS_MPP;
+		mstatus |= (task_mstatus & MSTATUS_MPP);
+		w_mstatus(mstatus);
 	}
 
 	return return_pc;
